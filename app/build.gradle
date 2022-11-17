@@ -69,4 +69,7 @@ dependencies {
     implementation "androidx.lifecycle:lifecycle-viewmodel-compose:$lifecycle_version"
     implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.5.1'
     debugImplementation "androidx.compose.ui:ui-tooling:$compose_version"
+
+    // WindowSizeClass
+    implementation 'androidx.compose.material3:material3-window-size-class:1.0.1'
 }
