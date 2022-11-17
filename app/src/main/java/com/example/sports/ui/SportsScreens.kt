@@ -21,6 +21,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Card
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.Icon
@@ -32,12 +34,12 @@ import androidx.compose.material.Text
 import androidx.compose.material.TopAppBar
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -48,6 +50,7 @@ import com.example.sports.R
 import com.example.sports.data.LocalSportsDataProvider
 import com.example.sports.model.Sport
 import com.example.sports.ui.theme.SportsTheme
+import com.example.sports.ui.util.ContentType
 
 /**
  * Main composable that serves as container
@@ -55,35 +58,69 @@ import com.example.sports.ui.theme.SportsTheme
  */
 @Composable
 fun SportsApp(
-    modifier: Modifier = Modifier,
+    widthSizeClass: WindowWidthSizeClass,
+    modifier: Modifier = Modifier
 ) {
     val viewModel: SportsViewModel = viewModel()
     val uiState by viewModel.uiState.collectAsState()
+
+    val contentType: ContentType = when (widthSizeClass) {
+        WindowWidthSizeClass.Compact -> {
+            ContentType.List
+        }
+        WindowWidthSizeClass.Medium -> {
+            ContentType.List
+        }
+        WindowWidthSizeClass.Expanded -> {
+            ContentType.ListDetail
+        }
+        else -> {
+            ContentType.List
+        }
+    }
 
     Scaffold(
         topBar = {
             SportsAppBar(
                 isShowingListPage = uiState.isShowingListPage,
-                onBackButtonClick = { viewModel.navigateToListPage() }
+                onBackButtonClick = { viewModel.navigateToListPage() },
+                contentType = contentType
             )
         }
     ) { innerPadding ->
-        if (uiState.isShowingListPage) {
-            SportsList(
+        if (contentType == ContentType.List) {
+            if (uiState.isShowingListPage) {
+                SportsList(
+                    sports = uiState.sportsList,
+                    onClick = {
+                        viewModel.updateCurrentSport(it)
+                        viewModel.navigateToDetailPage()
+                    },
+                    modifier = modifier.padding((innerPadding))
+                )
+            } else {
+                SportsDetail(
+                    selectedSport = uiState.currentSport,
+                    modifier = modifier.padding((innerPadding)),
+                    onBackPressed = {
+                        viewModel.navigateToListPage()
+                    },
+                    contentType = contentType
+                )
+            }
+        } else {
+            SportsListAndDetails(
                 sports = uiState.sportsList,
-                onClick = {
+                onSportClick = {
                     viewModel.updateCurrentSport(it)
                     viewModel.navigateToDetailPage()
                 },
-                modifier = modifier.padding((innerPadding))
-            )
-        } else {
-            SportsDetail(
                 selectedSport = uiState.currentSport,
-                modifier = modifier.padding((innerPadding)),
                 onBackPressed = {
                     viewModel.navigateToListPage()
-                }
+                },
+                contentType = contentType,
+                modifier = modifier.padding((innerPadding)),
             )
         }
     }
@@ -96,12 +133,13 @@ fun SportsApp(
 fun SportsAppBar(
     onBackButtonClick: () -> Unit,
     isShowingListPage: Boolean,
+    contentType: ContentType,
     modifier: Modifier = Modifier
 ) {
     TopAppBar(
         title = {
             Text(
-                if (!isShowingListPage) {
+                if (!isShowingListPage && contentType == ContentType.List) {
                     stringResource(R.string.news_fragment_label)
                 } else {
                     stringResource(R.string.list_fragment_label)
@@ -109,7 +147,7 @@ fun SportsAppBar(
             )
         },
         navigationIcon =
-        if (!isShowingListPage) {
+        if (!isShowingListPage && contentType == ContentType.List) {
             {
                 IconButton(onClick = onBackButtonClick) {
                     Icon(
@@ -139,14 +177,14 @@ private fun SportsListItem(
     ) {
         Row(
             modifier = Modifier
-              .fillMaxWidth()
-              .heightIn(min = 150.dp)
+                .fillMaxWidth()
+                .heightIn(min = 150.dp)
         ) {
             SportsListImageItem(sport)
             Column(
                 modifier = Modifier
-                  .weight(1f)
-                  .padding(top = 16.dp)
+                    .weight(1f)
+                    .padding(top = 16.dp)
             ) {
                 Text(
                     text = stringResource(sport.titleResourceId),
@@ -174,8 +212,8 @@ private fun SportsListItem(
 private fun SportsListImageItem(sport: Sport, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
-          .width(170.dp)
-          .fillMaxHeight()
+            .width(170.dp)
+            .fillMaxHeight()
     ) {
         Image(
             painter = painterResource(sport.imageResourceId),
@@ -205,18 +243,23 @@ private fun SportsList(
         }
     }
 }
-
 @Composable
 private fun SportsDetail(
     selectedSport: Sport,
+    contentType: ContentType,
     onBackPressed: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    BackHandler {
-        onBackPressed()
+    if (contentType == ContentType.List) {
+        BackHandler {
+            onBackPressed()
+        }
     }
+
     Column(
-        modifier = modifier.padding(4.dp)
+        modifier = modifier
+            .padding(4.dp)
+            .verticalScroll(rememberScrollState())
     ) {
         Box {
             Image(
@@ -230,8 +273,8 @@ private fun SportsDetail(
                 style = MaterialTheme.typography.h5,
                 color = MaterialTheme.colors.onSurface,
                 modifier = Modifier
-                  .padding(8.dp)
-                  .align(Alignment.BottomStart)
+                    .padding(8.dp)
+                    .align(Alignment.BottomStart)
             )
         }
         Text(
@@ -244,6 +287,30 @@ private fun SportsDetail(
             text = stringResource(selectedSport.newsDetails),
             style = MaterialTheme.typography.body1,
             modifier = Modifier.padding(8.dp)
+        )
+    }
+}
+
+@Composable
+fun SportsListAndDetails(
+    sports: List<Sport>,
+    onSportClick: (Sport) -> Unit,
+    selectedSport: Sport,
+    onBackPressed: () -> Unit,
+    contentType: ContentType,
+    modifier: Modifier = Modifier
+) {
+    Row(modifier = Modifier.fillMaxSize()) {
+        SportsList(
+            sports = sports,
+            onClick = onSportClick,
+            modifier = modifier.weight(1f)
+        )
+        SportsDetail(
+            selectedSport = selectedSport,
+            modifier = modifier.weight(1f),
+            onBackPressed = onBackPressed,
+            contentType = contentType
         )
     }
 }
@@ -262,12 +329,42 @@ fun SportsListItemPreview() {
 @Preview(showBackground = true)
 @Composable
 fun SportsListPreview() {
-    SportsTheme() {
+    SportsTheme {
         Surface {
             SportsList(
                 sports = LocalSportsDataProvider.getSportsData(),
                 onClick = {}
             )
         }
+    }
+}
+
+@Preview(showBackground = true, widthDp = 400)
+@Composable
+fun SportsAppCompactPreview() {
+    SportsTheme {
+        SportsApp(
+            widthSizeClass = WindowWidthSizeClass.Compact
+        )
+    }
+}
+
+@Preview(showBackground = true, widthDp = 700)
+@Composable
+fun SportsAppMediumPreview() {
+    SportsTheme {
+        SportsApp(
+            widthSizeClass = WindowWidthSizeClass.Medium
+        )
+    }
+}
+
+@Preview(showBackground = true, widthDp = 1000, heightDp = 300)
+@Composable
+fun SportsAppExpandedPreview() {
+    SportsTheme {
+        SportsApp(
+            widthSizeClass = WindowWidthSizeClass.Expanded
+        )
     }
 }
